@@ -41,6 +41,7 @@ pub const INTO_ITERATOR: [&str; 4] = ["core", "iter", "traits", "IntoIterator"];
 pub const IO_PRINT: [&str; 4] = ["std", "io", "stdio", "_print"];
 pub const IO_READ: [&str; 3] = ["std", "io", "Read"];
 pub const IO_WRITE: [&str; 3] = ["std", "io", "Write"];
+pub const IO_WRITE_FMT: [&str; 4] = ["std", "io", "Write", "write_fmt"];
 pub const ITERATOR: [&str; 4] = ["core", "iter", "iterator", "Iterator"];
 pub const LINKED_LIST: [&str; 3] = ["alloc", "linked_list", "LinkedList"];
 pub const LINT: [&str; 2] = ["lint", "Lint"];

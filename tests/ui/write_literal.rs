@@ -1,7 +1,5 @@
-// #![feature(plugin)]
-// #![plugin(clippy)]
 #![allow(unused_must_use)]
-// #![warn(write_literal)]
+#![warn(write_literal)]
 use std::io::Write;
 
 fn main() {

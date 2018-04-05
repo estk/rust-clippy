@@ -89,26 +89,33 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for Pass {
                     // Also, ensure the format string is `{}` with no special options, like `{:X}`
                     check_write_args_for_literal(cx, write_args);
 
-                    // if_chain! {
-                //         // ensure we're calling Arguments::new_v1
-                //         if args.len() == 1;
-                //         if let ExprCall(ref args_fun, ref args_args) = args[0].node;
-                //         if let ExprPath(ref qpath) = args_fun.node;
-                //         if let Some(const_def_id) = opt_def_id(resolve_node(cx, qpath, args_fun.hir_id));
-                //         if match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1);
-                //         if args_args.len() == 2;
-                //         if let ExprAddrOf(_, ref match_expr) = args_args[1].node;
-                //         if let ExprMatch(ref args, _, _) = match_expr.node;
-                //         if let ExprTup(ref args) = args.node;
-                //         if let Some((fmtstr, fmtlen)) = get_argument_fmtstr_parts(&args_args[0]);
-                    //     then {
-                    //         match name {
-                    //             "write" => check_write(cx, span, args, fmtstr, fmtlen),
-                    //             "writeln" => check_writeln(cx, span, fmtstr, fmtlen),
-                    //             _ => (),
-                    //         }
-                    //     }
+                    if_chain! {
+                        // ensure we're calling Arguments::new_v1
+                        if write_args.len() == 2;
+                        if let ExprCall(ref args_fun, ref args_args) = write_args[1].node;
+                        if let ExprPath(ref qpath) = args_fun.node;
+                        if let Some(const_def_id) = opt_def_id(resolve_node(cx, qpath, args_fun.hir_id));
+                        if match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1)
+                            || match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1FORMATTED);
+                        if args_args.len() >= 2;
+                        if let ExprAddrOf(_, ref match_expr) = args_args[1].node;
+                        if let ExprMatch(ref args, _, _) = match_expr.node;
+                        if let ExprTup(ref args) = args.node;
+                        if let Some((fmtstr, fmtlen)) = get_argument_fmtstr_parts(&args_args[0]);
+                        then {
+                            // println!("we have a fmt_argments_newv1formatted call");
+                            // println!("def_id: {:?}", const_def_id);
+                            // println!("path: {:?}", &paths::FMT_ARGUMENTS_NEWV1);
+                            // println!("ISMATCH: {}", match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1));
+                            // println!("args_args: {:?}", args_args);
+                            match name {
+                                "write" => check_write(cx, span, args, fmtstr, fmtlen),
+                                "writeln" => check_writeln(cx, span, fmtstr, fmtlen),
+                                _ => (),
+                            }
+                        }
                     }
+                }
             }
         }
     }
@@ -162,6 +169,7 @@ fn check_write<'a, 'tcx>(
     fmtstr: InternedString,
     fmtlen: usize,
 ) {
+    // println!("check write");
     if_chain! {
         // check the final format string part
         if let Some('\n') = fmtstr.chars().last();
@@ -181,6 +189,7 @@ fn check_write<'a, 'tcx>(
 
 /// Check for writeln!("")
 fn check_writeln<'a, 'tcx>(cx: &LateContext<'a, 'tcx>, span: Span, fmtstr: InternedString, fmtlen: usize) {
+    // println!("check writeln");
     if_chain! {
         // check that the string is empty
         if fmtlen == 1;

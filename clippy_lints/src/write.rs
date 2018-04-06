@@ -173,21 +173,24 @@ impl LintPass for Pass {
 
 impl<'a, 'tcx> LateLintPass<'a, 'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'a, 'tcx>, expr: &'tcx Expr) {
-        if_chain! {
-            if let ExprCall(ref fun, ref args) = expr.node;
-            if let ExprPath(ref qpath) = fun.node;
-            if let Some(fun_id) = opt_def_id(resolve_node(cx, qpath, fun.hir_id));
-            then {
-                check_print_variants(cx, expr, fun_id, args);
-            } else {
+        match expr.node {
+            // print!()
+            ExprCall(ref fun, ref args) => {
                 if_chain! {
-                    if let ExprMethodCall(ref write_fun, _, ref write_args) = expr.node;
-                    if write_fun.name == "write_fmt";
+                    if let ExprPath(ref qpath) = fun.node;
+                    if let Some(fun_id) = opt_def_id(resolve_node(cx, qpath, fun.hir_id));
                     then {
-                        check_write_variants(cx, expr, write_args);
+                        check_print_variants(cx, expr, fun_id, args);
                     }
                 }
-            }
+            },
+            // write!()
+            ExprMethodCall(ref fun, _, ref args) => {
+                if fun.name == "write_fmt" {
+                    check_write_variants(cx, expr, args);
+                }
+            },
+            _ => (),
         }
     }
 }
@@ -200,51 +203,46 @@ fn check_write_variants<'a, 'tcx>(cx: &LateContext<'a, 'tcx>, expr: &'tcx Expr, 
             None => (span, "write"),
         };
 
-        // Check for literals in the write!/writeln! args
-        // Also, ensure the format string is `{}` with no special options, like `{:X}`
-        if_chain! {
-            if write_args.len() == 2;
-            if let ExprCall(_, ref args_args) = write_args[1].node;
-            if let spans = check_fmt_args_for_literal(cx, args_args);
-            if spans.len() > 0;
-            then {
-                for span in spans {
-                    span_lint(cx, WRITE_LITERAL, span, "writing a literal with an empty format string");
-                }
-            }
-        }
-
         if_chain! {
             // ensure we're calling Arguments::new_v1
             if write_args.len() == 2;
             if let ExprCall(ref args_fun, ref args_args) = write_args[1].node;
-            if let ExprPath(ref qpath) = args_fun.node;
-            if let Some(const_def_id) = opt_def_id(resolve_node(cx, qpath, args_fun.hir_id));
-            if match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1)
-                || match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1FORMATTED);
-            if args_args.len() >= 2;
-            if let ExprAddrOf(_, ref match_expr) = args_args[1].node;
-            if let ExprMatch(ref args, _, _) = match_expr.node;
-            if let ExprTup(ref args) = args.node;
-            if let Some((fmtstr, fmtlen)) = get_argument_fmtstr_parts(&args_args[0]);
             then {
-                match name {
-                    "write" => if has_newline_end(args, fmtstr, fmtlen) {
-                        span_lint(cx, WRITE_WITH_NEWLINE, span,
-                                "using `write!()` with a format string that ends in a \
-                                newline, consider using `writeln!()` instead");
-                    },
-                    "writeln" => if has_empty_arg(cx, span, fmtstr, fmtlen) {
-                        span_lint_and_sugg(
-                            cx,
-                            WRITE_WITH_NEWLINE,
-                            span,
-                            "using `writeln!(v, \"\")`",
-                            "replace it with",
-                            "writeln!(v)".to_string(),
-                        );
-                    },
-                    _ => (),
+                // Check for literals in the write!/writeln! args
+                check_fmt_args_for_literal(cx, args_args, |span| {
+                    span_lint(cx, WRITE_LITERAL, span, "writing a literal with an empty format string");
+                });
+
+                if_chain! {
+                    if let ExprPath(ref qpath) = args_fun.node;
+                    if let Some(const_def_id) = opt_def_id(resolve_node(cx, qpath, args_fun.hir_id));
+                    if match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1)
+                        || match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1FORMATTED);
+                    if args_args.len() >= 2;
+                    if let ExprAddrOf(_, ref match_expr) = args_args[1].node;
+                    if let ExprMatch(ref args, _, _) = match_expr.node;
+                    if let ExprTup(ref args) = args.node;
+                    if let Some((fmtstr, fmtlen)) = get_argument_fmtstr_parts(&args_args[0]);
+                    then {
+                        match name {
+                            "write" => if has_newline_end(args, fmtstr, fmtlen) {
+                                span_lint(cx, WRITE_WITH_NEWLINE, span,
+                                        "using `write!()` with a format string that ends in a \
+                                        newline, consider using `writeln!()` instead");
+                            },
+                            "writeln" => if has_empty_arg(cx, span, fmtstr, fmtlen) {
+                                span_lint_and_sugg(
+                                    cx,
+                                    WRITE_WITH_NEWLINE,
+                                    span,
+                                    "using `writeln!(v, \"\")`",
+                                    "replace it with",
+                                    "writeln!(v)".to_string(),
+                                );
+                            },
+                            _ => (),
+                        }
+                    }
                 }
             }
         }
@@ -269,53 +267,47 @@ fn check_print_variants<'a, 'tcx>(
 
             span_lint(cx, PRINT_STDOUT, span, &format!("use of `{}!`", name));
 
-            // Check for literals in the print!/println! args
-            // Also, ensure the format string is `{}` with no special options, like `{:X}`
-
-            if_chain! {
-                if args.len() == 1;
-                if let ExprCall(_, ref args_args) = args[0].node;
-                if let spans = check_fmt_args_for_literal(cx, args_args);
-                if spans.len() > 0;
-                then {
-                    for span in spans {
-                        span_lint(cx, PRINT_LITERAL, span, "printing a literal with an empty format string");
-                    }
-                }
-            }
-
             if_chain! {
                 // ensure we're calling Arguments::new_v1
                 if args.len() == 1;
                 if let ExprCall(ref args_fun, ref args_args) = args[0].node;
-                if let ExprPath(ref qpath) = args_fun.node;
-                if let Some(const_def_id) = opt_def_id(resolve_node(cx, qpath, args_fun.hir_id));
-                if match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1);
-                if args_args.len() == 2;
-                if let ExprAddrOf(_, ref match_expr) = args_args[1].node;
-                if let ExprMatch(ref args, _, _) = match_expr.node;
-                if let ExprTup(ref args) = args.node;
-                if let Some((fmtstr, fmtlen)) = get_argument_fmtstr_parts(&args_args[0]);
                 then {
-                    match name {
-                        "print" =>
-                            if has_newline_end(args, fmtstr, fmtlen) {
-                                span_lint(cx, PRINT_WITH_NEWLINE, span,
-                                        "using `print!()` with a format string that ends in a \
-                                        newline, consider using `println!()` instead");
-                            },
-                        "println" =>
-                            if has_empty_arg(cx, span, fmtstr, fmtlen) {
-                                span_lint_and_sugg(
-                                    cx,
-                                    PRINT_WITH_NEWLINE,
-                                    span,
-                                    "using `println!(\"\")`",
-                                    "replace it with",
-                                    "println!()".to_string(),
-                                );
-                            },
-                        _ => (),
+                    // Check for literals in the print!/println! args
+                    check_fmt_args_for_literal(cx, args_args, |span| {
+                        span_lint(cx, PRINT_LITERAL, span, "printing a literal with an empty format string");
+                    });
+
+                    if_chain! {
+                        if let ExprPath(ref qpath) = args_fun.node;
+                        if let Some(const_def_id) = opt_def_id(resolve_node(cx, qpath, args_fun.hir_id));
+                        if match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1);
+                        if args_args.len() == 2;
+                        if let ExprAddrOf(_, ref match_expr) = args_args[1].node;
+                        if let ExprMatch(ref args, _, _) = match_expr.node;
+                        if let ExprTup(ref args) = args.node;
+                        if let Some((fmtstr, fmtlen)) = get_argument_fmtstr_parts(&args_args[0]);
+                        then {
+                            match name {
+                                "print" =>
+                                    if has_newline_end(args, fmtstr, fmtlen) {
+                                        span_lint(cx, PRINT_WITH_NEWLINE, span,
+                                                "using `print!()` with a format string that ends in a \
+                                                newline, consider using `println!()` instead");
+                                    },
+                                "println" =>
+                                    if has_empty_arg(cx, span, fmtstr, fmtlen) {
+                                        span_lint_and_sugg(
+                                            cx,
+                                            PRINT_WITH_NEWLINE,
+                                            span,
+                                            "using `println!(\"\")`",
+                                            "replace it with",
+                                            "println!()".to_string(),
+                                        );
+                                    },
+                                _ => (),
+                            }
+                        }
                     }
                 }
             }
@@ -342,8 +334,10 @@ fn check_print_variants<'a, 'tcx>(
 //                                    ^ literal in `writeln!`
 // e.g., `println!("... {} ...", "foo")`
 //                                ^ literal in `println!`
-fn check_fmt_args_for_literal<'a, 'tcx>(cx: &LateContext<'a, 'tcx>, args: &HirVec<Expr>) -> Vec<Span> {
-    let mut spans = Vec::new();
+fn check_fmt_args_for_literal<'a, 'tcx, F>(cx: &LateContext<'a, 'tcx>, args: &HirVec<Expr>, lint_fn: F)
+where
+    F: Fn(Span),
+{
     if_chain! {
         if args.len() > 1;
         if let ExprAddrOf(_, ref match_expr) = args[1].node;
@@ -369,14 +363,12 @@ fn check_fmt_args_for_literal<'a, 'tcx>(cx: &LateContext<'a, 'tcx>, args: &HirVe
                     if match_def_path(cx.tcx, fun_def_id, &paths::DISPLAY_FMT_METHOD) ||
                        match_def_path(cx.tcx, fun_def_id, &paths::DEBUG_FMT_METHOD);
                     then {
-                        spans.push(tup_val.span)
+                        lint_fn(tup_val.span);
                     }
                 }
             }
         }
     }
-
-    spans
 }
 
 /// Check for fmtstr = "... \n"
@@ -394,7 +386,6 @@ fn has_newline_end(args: &HirVec<Expr>, fmtstr: InternedString, fmtlen: usize) -
             return true
         }
     }
-
     false
 }
 
@@ -412,7 +403,6 @@ fn has_empty_arg<'a, 'tcx>(cx: &LateContext<'a, 'tcx>, span: Span, fmtstr: Inter
             return true
         }
     }
-
     false
 }
 
@@ -443,6 +433,5 @@ fn is_in_debug_impl(cx: &LateContext, expr: &Expr) -> bool {
             }
         }
     }
-
     false
 }

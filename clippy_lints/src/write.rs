@@ -204,9 +204,13 @@ fn check_write_variants<'a, 'tcx>(cx: &LateContext<'a, 'tcx>, expr: &'tcx Expr, 
         };
 
         if_chain! {
-            // ensure we're calling Arguments::new_v1
+            // ensure we're calling Arguments::new_v1 or Arguments::new_v1_formatted
             if write_args.len() == 2;
             if let ExprCall(ref args_fun, ref args_args) = write_args[1].node;
+            if let ExprPath(ref qpath) = args_fun.node;
+            if let Some(const_def_id) = opt_def_id(resolve_node(cx, qpath, args_fun.hir_id));
+            if match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1) ||
+               match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1FORMATTED);
             then {
                 // Check for literals in the write!/writeln! args
                 check_fmt_args_for_literal(cx, args_args, |span| {
@@ -214,10 +218,6 @@ fn check_write_variants<'a, 'tcx>(cx: &LateContext<'a, 'tcx>, expr: &'tcx Expr, 
                 });
 
                 if_chain! {
-                    if let ExprPath(ref qpath) = args_fun.node;
-                    if let Some(const_def_id) = opt_def_id(resolve_node(cx, qpath, args_fun.hir_id));
-                    if match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1)
-                        || match_def_path(cx.tcx, const_def_id, &paths::FMT_ARGUMENTS_NEWV1FORMATTED);
                     if args_args.len() >= 2;
                     if let ExprAddrOf(_, ref match_expr) = args_args[1].node;
                     if let ExprMatch(ref args, _, _) = match_expr.node;

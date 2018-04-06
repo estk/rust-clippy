@@ -194,7 +194,6 @@ pub mod unused_io_amount;
 pub mod unused_label;
 pub mod use_self;
 pub mod vec;
-pub mod write;
 pub mod zero_div_zero;
 // end lints modules, do not remove this comment, it’s used in `update_lints`
 
@@ -344,7 +343,6 @@ pub fn register_plugins(reg: &mut rustc_plugin::Registry) {
     reg.register_late_lint_pass(box derive::Derive);
     reg.register_late_lint_pass(box types::CharLitAsU8);
     reg.register_late_lint_pass(box print::Pass);
-    reg.register_late_lint_pass(box write::Pass);
     reg.register_late_lint_pass(box vec::Pass);
     reg.register_early_lint_pass(box non_expressive_names::NonExpressiveNames {
         single_char_binding_names_threshold: conf.single_char_binding_names_threshold,
@@ -661,7 +659,6 @@ pub fn register_plugins(reg: &mut rustc_plugin::Registry) {
         unused_io_amount::UNUSED_IO_AMOUNT,
         unused_label::UNUSED_LABEL,
         vec::USELESS_VEC,
-        write::WRITE_LITERAL,
         zero_div_zero::ZERO_DIVIDED_BY_ZERO,
     ]);
 
@@ -741,7 +738,6 @@ pub fn register_plugins(reg: &mut rustc_plugin::Registry) {
         strings::STRING_LIT_AS_BYTES,
         types::IMPLICIT_HASHER,
         types::LET_UNIT_VALUE,
-        write::WRITE_LITERAL,
         unsafe_removed_from_name::UNSAFE_REMOVED_FROM_NAME,
     ]);
 

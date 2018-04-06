@@ -1,7 +1,7 @@
 error: using `writeln!(v, "")`
- --> $DIR/writeln_empty_string.rs:8:5
+ --> $DIR/writeln_empty_string.rs:9:5
   |
-8 |     writeln!(&mut v, "");
+9 |     writeln!(&mut v, "");
   |     ^^^^^^^^^^^^^^^^^^^^^ help: replace it with: `writeln!(v)`
   |
   = note: `-D write-with-newline` implied by `-D warnings`

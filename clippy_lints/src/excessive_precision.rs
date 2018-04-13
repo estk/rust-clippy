@@ -1,7 +1,10 @@
 use rustc::lint::*;
+use std::f32;
+use std::f64;
 use syntax::ast::*;
-use syntax::ptr::P;
+use syntax::symbol::InternedString;
 use syntax_pos::symbol::Symbol;
+
 /// **What it does:** Checks for float literals with a precision greater
 /// than that supported by the underlying type
 ///
@@ -38,58 +41,120 @@ impl LintPass for ExcessivePrecision {
 
 // This will check consts
 impl EarlyLintPass for ExcessivePrecision {
-    // println!("{}", .99999999999999999999)
-    fn check_expr(&mut self, cx: &EarlyContext, expr: &Expr) {
-        println!("check_expr {:?}", expr);
-        if_chain! {
-            if let ExprKind::Lit(ref lit) = expr.node;
-            if let LitKind::Float(ref sym, ref fty) = lit.node;
-            then {
-                self.check(sym, fty);
-            }
-
+    fn check_stmt(&mut self, cx: &EarlyContext, stmt: &Stmt) {
+        match stmt.node {
+            StmtKind::Local(ref s) => self.local_check(cx, s),
+            StmtKind::Item(ref s) => self.item_check(cx, s),
+            StmtKind::Expr(ref s) => self.expr_check(cx, s),
+            _ => (),
         }
     }
-    // fn check_stmt(&mut self, cx: &EarlyContext, stmt: &stmt) {
-    //     match stmt.node {
-    //         StmtKind::Local(ref loc) => self.local_check(loc),
-    //         StmtKind::Item(ref loc) => self.item_check(loc),
-    //     }
-    // }
+}
+
+fn count_digits(s: InternedString) -> u32 {
+    let mut count = 0;
+    let mut predecimal = true;
+    for ref c in s.chars() {
+        // leading zeros
+        if *c == '0' && count == 0 && predecimal {
+            continue;
+        } else if *c == '.' {
+            predecimal = false;
+        } else if *c == '_' {
+            continue;
+        // f32/f64 suffix
+        } else if *c == 'f' {
+            break;
+        } else {
+            count += 1;
+        }
+    }
+    count
 }
 
 impl ExcessivePrecision {
-    fn check(&mut self, sym: &Symbol, fty: &FloatTy) {
+    fn check(&mut self, cx: &EarlyContext, sym: &Symbol, fty: &FloatTy) -> bool {
+        let max_digits = match fty {
+            FloatTy::F32 => f32::DIGITS,
+            FloatTy::F64 => f64::DIGITS,
+        };
+        let digits = count_digits(sym.as_str());
         println!("checking {} with type {}", sym, fty);
+        digits > max_digits
     }
+
+    // const foo = 0.123...
+    fn item_check(&mut self, cx: &EarlyContext, item: &Item) {
+        if_chain! {
+            if let ItemKind::Const(ref ty, ref expr) = item.node;
+            if let Some(ref fty) = from_ty(ty);
+            if let Some((sym, _)) = extract_float_literal(expr);
+            then {
+                println!("item check:");
+                let lint = self.check(cx, sym, fty);
+                if lint {
+                    println!("excessive precision: {}", sym);
+                }
+                println!();
+            }
+        }
+    }
+
+    // println!("{}", .99999999999999999999)
+    fn expr_check(&mut self, cx: &EarlyContext, expr: &Expr) {
+        if_chain! {
+            if let Some((sym, Some(fty))) = extract_float_literal(expr);
+            then {
+                self.check(cx, sym, fty);
+            }
+        }
+    }
+
     // We cant just check the expr, we need to have the type assignment
     // so that we know the float precision.
     // let foo = 0.123...
     fn local_check(&mut self, cx: &EarlyContext, local: &Local) {
+        println!("in local_check with {:?}", local);
         if_chain! {
+            if false;
             if let Some(ref exptr) = local.init;
             if let ExprKind::Lit(ref lit) = exptr.node;
-            if let LitKind::Float(ref sym, ref fty) = lit.node;
-
+            if let LitKind::Float(ref sym, _) | LitKind::FloatUnsuffixed(ref sym) = lit.node;
             if let Some(ref ty)  = local.ty;
-            if let TyKind::Path(_, ref pth) = ty.node;
-            let ref segs = pth.segments;
-            if let ref seg = segs[0];
+            if let Some(ref fty) = from_ty(ty);
             then {
-                let id = seg.ident;
-                let name = id.name.as_str().to_lowercase();
-                if name == "f32" {
-                    self.check(sym, &FloatTy::F32);
-                } else if name == "f64" {
-                    self.check(sym, &FloatTy::F64);
-                }
+                println!("local check:");
+                self.check(cx, sym, fty);
             }
         }
     }
-    // const foo = 0.123...
-    // fn item_check(&mut self, cx: &EarlyContext, item: &Item) {
-    //     if let ItemKind::Const(ref ty, ref expr) = item.node {
-    //         // check the expr with ty
-    //     }
-    // }
+}
+
+fn extract_float_literal<'a>(expr: &'a Expr) -> Option<(&'a Symbol, Option<&'a FloatTy>)> {
+    if let ExprKind::Lit(ref lit) = expr.node {
+        return match lit.node {
+            LitKind::Float(ref sym, ref fty) => Some((sym, Some(fty))),
+            LitKind::FloatUnsuffixed(ref sym) => Some((sym, None)),
+            _ => None,
+        };
+    }
+    None
+}
+
+fn from_ty(ty: &Ty) -> Option<FloatTy> {
+    if_chain! {
+        if let TyKind::Path(_, ref pth) = ty.node;
+        let ref segs = pth.segments;
+        if let ref seg = segs[0];
+        then {
+            let id = seg.ident;
+            let name = id.name.as_str().to_lowercase();
+            if name == "f32" {
+                return Some(FloatTy::F32)
+            } else if name == "f64" {
+                return Some(FloatTy::F64)
+            }
+        }
+    }
+    None
 }

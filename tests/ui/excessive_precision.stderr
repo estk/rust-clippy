@@ -1,0 +1,52 @@
+error: float has excessive precision
+  --> $DIR/excessive_precision.rs:11:28
+   |
+11 |     const BAD32_SUF: f32 = 0.123_456_789_f32;
+   |                            ^^^^^^^^^^^^^^^^^ help: consider making it a f64: `f64`
+   |
+   = note: `-D excessive-precision` implied by `-D warnings`
+
+error: float has excessive precision
+  --> $DIR/excessive_precision.rs:12:24
+   |
+12 |     const BAD32: f32 = 0.123_456_789;
+   |                        ^^^^^^^^^^^^^ help: consider making it a f64: `f64`
+
+error: float has excessive precision
+  --> $DIR/excessive_precision.rs:13:24
+   |
+13 |     const BAD64: f64 = 0.123_456_789_012_345_6;
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^ help: consider truncating it: `truncate it`
+
+error: float has excessive precision
+  --> $DIR/excessive_precision.rs:14:28
+   |
+14 |     const BAD64_SUF: f64 = 0.123_456_789_012_345_6f64;
+   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider truncating it: `truncate it`
+
+error: float has excessive precision
+  --> $DIR/excessive_precision.rs:26:26
+   |
+26 |     let bad32_suf: f32 = 1.123_456_789_f32;
+   |                          ^^^^^^^^^^^^^^^^^ help: consider making it a f64: `f64`
+
+error: float has excessive precision
+  --> $DIR/excessive_precision.rs:27:22
+   |
+27 |     let bad32: f32 = 1.123_456_789;
+   |                      ^^^^^^^^^^^^^ help: consider making it a f64: `f64`
+
+error: float has excessive precision
+  --> $DIR/excessive_precision.rs:28:22
+   |
+28 |     let bad64: f64 = 0.123_456_789_012_345_6;
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^ help: consider truncating it: `truncate it`
+
+error: float has excessive precision
+  --> $DIR/excessive_precision.rs:29:26
+   |
+29 |     let bad64_suf: f64 = 0.123_456_789_012_345_6f64;
+   |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider truncating it: `truncate it`
+
+error: aborting due to 8 previous errors
+

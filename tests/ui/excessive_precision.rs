@@ -2,13 +2,14 @@
 #![warn(excessive_precision)]
 
 fn main() {
+    // TODO add prefix tests
     // Consts
     const GOOD32_SUF: f32 = 0.123_456_f32;
     const GOOD32: f32 = 0.123_456;
     const GOOD64: f64 = 0.123_456_789_012;
 
-    const BAD32_SUF: f32 = 1.123_456_789_f32;
-    const BAD32: f32 = 1.123_456_789;
+    const BAD32_SUF: f32 = 0.123_456_789_f32;
+    const BAD32: f32 = 0.123_456_789;
     const BAD64: f64 = 0.123_456_789_012_345_6;
     const BAD64_SUF: f64 = 0.123_456_789_012_345_6f64;
 
@@ -16,9 +17,16 @@ fn main() {
     // Literal
     // println!(9.999_999_999_999_999_999_999_999_999);
 
-    // let too_suf: f32 = 6.283_185_307_f32;
+    // TODO add inferred type tests
+    // Locals
+    let good32_suf: f32 = 0.123_456_f32;
+    let good32: f32 = 0.123_456;
+    let good64: f64 = 0.123_456_789_012;
 
-    // let too: f32 = 6.283_185_307;
+    let bad32_suf: f32 = 1.123_456_789_f32;
+    let bad32: f32 = 1.123_456_789;
+    let bad64: f64 = 0.123_456_789_012_345_6;
+    let bad64_suf: f64 = 0.123_456_789_012_345_6f64;
 
-    // let too64: f64 = 0.123_456_789_012_345_6;
+    // TODO Vectors / nested vectors
 }

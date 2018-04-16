@@ -41,8 +41,8 @@ impl LintPass for ExcessivePrecision {
     }
 }
 
-impl EarlyLintPass for ExcessivePrecision {
-    fn check_stmt(&mut self, cx: &EarlyContext, stmt: &Stmt) {
+impl LateLintPass for ExcessivePrecision {
+    fn check_stmt(&mut self, cx: &LateContext, stmt: &Stmt) {
         match stmt.node {
             StmtKind::Local(ref s) => self.local_check(cx, s),
             StmtKind::Item(ref s) => self.item_check(cx, s),
@@ -53,7 +53,7 @@ impl EarlyLintPass for ExcessivePrecision {
 }
 
 impl ExcessivePrecision {
-    fn check(&mut self, cx: &EarlyContext, sym: &Symbol, fty: &FloatTy) -> bool {
+    fn check(&mut self, cx: &LateContext, sym: &Symbol, fty: &FloatTy) -> bool {
         println!("checking {} with type {}", sym, fty);
         let max = max_digits(fty);
         let digits = count_digits(sym.as_str());
@@ -61,7 +61,7 @@ impl ExcessivePrecision {
     }
 
     // const foo = 0.123...
-    fn item_check(&mut self, cx: &EarlyContext, item: &Item) {
+    fn item_check(&mut self, cx: &LateContext, item: &Item) {
         if_chain! {
             if let ItemKind::Const(ref ty, ref expr) = item.node;
             if let Some(ref fty) = from_ty(ty);
@@ -75,7 +75,7 @@ impl ExcessivePrecision {
     }
 
     // println!("{}", .99999999999999999999)
-    fn expr_check(&mut self, cx: &EarlyContext, expr: &Expr) {
+    fn expr_check(&mut self, cx: &LateContext, expr: &Expr) {
         if_chain! {
             if let Some((sym, Some(fty))) = extract_float_literal(expr);
             then {
@@ -87,7 +87,7 @@ impl ExcessivePrecision {
     // We cant just check the expr, we need to have the type assignment
     // so that we know the float precision.
     // let foo = 0.123...
-    fn local_check(&mut self, cx: &EarlyContext, local: &Local) {
+    fn local_check(&mut self, cx: &LateContext, local: &Local) {
         if_chain! {
             if let Some(ref exptr) = local.init;
             if let ExprKind::Lit(ref lit) = exptr.node;
@@ -104,7 +104,7 @@ impl ExcessivePrecision {
     }
 }
 
-fn perform_lint(cx: &EarlyContext, span: Span, fty: &FloatTy) {
+fn perform_lint(cx: &LateContext, span: Span, fty: &FloatTy) {
     match fty {
         FloatTy::F32 => {
             // TODO check can fit in f64?

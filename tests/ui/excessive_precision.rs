@@ -29,4 +29,5 @@ fn main() {
     let bad64_suf: f64 = 0.123_456_789_012_345_6f64;
 
     // TODO Vectors / nested vectors
+    // let recurse: Vec<f32> = vec![0.123_456_789]
 }

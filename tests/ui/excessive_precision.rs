@@ -30,4 +30,8 @@ fn main() {
 
     // TODO Vectors / nested vectors
     let recurse: Vec<f32> = vec![0.123_456_789];
+
+    // Exponential float notation
+    let good_exp32: f32 = 1e-10;
+    let bad_exp32: f32 = 1.123456789e-10;
 }

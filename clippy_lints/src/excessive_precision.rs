@@ -6,7 +6,6 @@ use std::f64;
 use std::iter::Enumerate;
 use std::str::Chars;
 use syntax::ast::*;
-use syntax::symbol::InternedString;
 use syntax_pos::symbol::Symbol;
 use utils::span_lint_and_sugg;
 
@@ -88,6 +87,7 @@ impl ExcessivePrecision {
                     f.to_string()
                 },
             };
+            println!("got {}, have {}", sym_str, s);
 
             if sym_str == s {
                 None

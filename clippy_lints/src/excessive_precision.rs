@@ -52,55 +52,124 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for ExcessivePrecision {
             if let TypeVariants::TyFloat(ref fty) = ty.sty;
             if let hir::ExprLit(ref lit) = expr.node;
             if let LitKind::Float(ref sym, _) | LitKind::FloatUnsuffixed(ref sym) = lit.node;
+            if let Some(sugg) = self.check(sym, fty);
             then {
-                if self.check(sym, fty) {
-
                 span_lint_and_sugg(
                     cx,
                     EXCESSIVE_PRECISION,
                     expr.span,
                     "float has excessive precision",
                     "consider truncating it",
-                    "<rounded literal>".to_string(),
+                    sugg,
                 );
-                }
             }
         }
     }
 }
 
 impl ExcessivePrecision {
-    fn check(&mut self, sym: &Symbol, fty: &FloatTy) -> bool {
+    fn check(&self, sym: &Symbol, fty: &FloatTy) -> Option<String> {
         let max = max_digits(fty);
-        let digits = count_digits(sym.as_str());
-        digits > max
+        let sym_str = sym.as_str();
+        let (l, r) = split_at_digit(&sym_str, max);
+
+        Some(l.to_string())
     }
 }
 
-fn count_digits(s: InternedString) -> u32 {
-    let mut count = 0;
-    let mut predecimal = true;
-    for ref c in s.chars() {
-        // leading zeros
-        if *c == '0' && count == 0 && predecimal {
+fn round(x: &str, y: &str) -> String {
+    if should_round_up(y) {
+        round_up(x)
+    } else {
+        x.to_string()
+    }
+}
+fn should_round_up(s: &str) -> bool {
+    for c in s.chars() {
+        if c == '5' || c == '_' || c == '.' {
             continue;
-        } else if *c == '.' {
-            predecimal = false;
-        } else if *c == '_' {
-            continue;
-        // f32/f64 suffix
-        } else if *c == 'f' {
-            break;
-        } else {
-            count += 1;
+        }
+        if c == 'f' {
+            // TODO fine to just trunc?
+            return false;
+        }
+
+        match c.to_digit(10) {
+            None => return false,
+            Some(x) => {
+                if x > 5 {
+                    return true;
+                } else {
+                    return false;
+                }
+            },
         }
     }
-    count
+    false
+}
+
+fn round_up(s: &str) -> String {
+    let res = s.get(..s.len()).unwrap().to_string();
+    let last = s.chars().last().unwrap();
+    let mut digit = last.to_digit(10).unwrap();
+    digit += 1;
+    s.to_string()
+}
+
+fn split_at_digit<'a>(s: &'a InternedString, n: u32) -> (&'a str, &'a str) {
+    let ds = Digits::new(s);
+    for (di, (i, ref c)) in ds.enumerate() {
+        if di > n as usize {
+            return s.split_at(i);
+        }
+    }
+    (&s, "")
 }
 
 fn max_digits(fty: &FloatTy) -> u32 {
     match fty {
         FloatTy::F32 => f32::DIGITS,
         FloatTy::F64 => f64::DIGITS,
+    }
+}
+
+struct Digits<'a> {
+    index: u32,
+    predecimal: bool,
+    chars: Enumerate<Chars<'a>>,
+}
+
+impl<'a> Digits<'a> {
+    fn new(s: &'a str) -> Self {
+        Digits {
+            index: 0,
+            predecimal: true,
+            chars: s.chars().enumerate(),
+        }
+    }
+}
+
+impl<'a> Iterator for Digits<'a> {
+    type Item = (usize, char);
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.chars.next() {
+                Some((i, c)) => {
+                    if c == '0' && self.index == 0 && self.predecimal || c == '_' {
+                        continue;
+                    } else if c == '.' {
+                        self.predecimal = false;
+                        continue;
+                    } else if c == 'f' {
+                        // f32/f64 suffix
+                        return None;
+                    } else {
+                        self.index += 1;
+                        return Some((i, c));
+                    }
+                },
+                None => return None,
+            }
+        }
     }
 }

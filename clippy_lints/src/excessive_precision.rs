@@ -83,7 +83,7 @@ impl ExcessivePrecision {
 }
 fn split_at_digit<'a>(s: &'a InternedString, n: u32) -> (&'a str, &'a str) {
     let ds = Digits::new(s);
-    for (di, (i, ref _)) in ds.enumerate() {
+    for (di, (i, _)) in ds.enumerate() {
         if di > n as usize {
             return s.split_at(i);
         }

@@ -67,28 +67,37 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for ExcessivePrecision {
 }
 
 impl ExcessivePrecision {
+    // TODO: need to check case where digits > Max but still ok
     // None if nothing to lint, Some(suggestion) if lint neccessary
     fn check(&self, sym: &Symbol, fty: &FloatTy) -> Option<String> {
         let max = max_digits(fty);
         let sym_str = sym.as_str();
-        println!("sym {:?}", sym);
-        let (l, r) = split_at_digit(&sym_str, max);
+        let digits = count_digits(&sym_str);
+        // Try to bail out if the float is for sure fine.
+        // If its within the 2 decimal digits of overflow we
+        // check if the parsed representation is the same as the string
+        // since we'll need the truncated string anyway.
+        if digits > max as usize {
+            let s = match *fty {
+                FloatTy::F32 => {
+                    let f = sym_str.parse::<f32>().unwrap();
+                    f.to_string()
+                },
+                FloatTy::F64 => {
+                    let f = sym_str.parse::<f64>().unwrap();
+                    f.to_string()
+                },
+            };
 
-        if r == "" {
-            None
+            if sym_str == s {
+                None
+            } else {
+                Some(s)
+            }
         } else {
-            Some(l.to_string())
+            None
         }
     }
-}
-fn split_at_digit<'a>(s: &'a InternedString, n: u32) -> (&'a str, &'a str) {
-    let ds = Digits::new(s);
-    for (di, (i, _)) in ds.enumerate() {
-        if di > n as usize {
-            return s.split_at(i);
-        }
-    }
-    (&s, "")
 }
 
 fn max_digits(fty: &FloatTy) -> u32 {
@@ -98,39 +107,33 @@ fn max_digits(fty: &FloatTy) -> u32 {
     }
 }
 
-struct Digits<'a> {
-    index: u32,
-    predecimal: bool,
-    chars: Enumerate<Chars<'a>>,
+fn count_digits(s: &str) -> usize {
+    Digits::new(s).collect::<Vec<_>>().len()
 }
 
+struct Digits<'a> {
+    index: u32,
+    chars: Enumerate<Chars<'a>>,
+}
 impl<'a> Digits<'a> {
     fn new(s: &'a str) -> Self {
         Digits {
             index: 0,
-            predecimal: true,
             chars: s.chars().enumerate(),
         }
     }
 }
-
 impl<'a> Iterator for Digits<'a> {
     type Item = (usize, char);
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            match self.chars.next() {
-                Some((i, c)) => {
-                    if c == '0' && self.index == 0 && self.predecimal {
-                        continue;
-                    } else if c == '.' {
-                        self.predecimal = false;
-                        continue;
-                    } else {
-                        self.index += 1;
-                        return Some((i, c));
-                    }
-                },
-                None => return None,
+            let (i, c) = self.chars.next()?;
+            // point char or leading zero
+            if c == '.' || c == '0' && self.index == 0 {
+                continue;
+            } else {
+                self.index += 1;
+                return Some((i, c));
             }
         }
     }

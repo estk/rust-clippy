@@ -8,7 +8,6 @@ use std::str::Chars;
 use syntax::ast::*;
 use syntax::symbol::InternedString;
 use syntax_pos::symbol::Symbol;
-use syntax_pos::Span;
 use utils::span_lint_and_sugg;
 
 /// **What it does:** Checks for float literals with a precision greater
@@ -59,7 +58,7 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for ExcessivePrecision {
                     EXCESSIVE_PRECISION,
                     expr.span,
                     "float has excessive precision",
-                    "consider truncating it",
+                    "consider changing the type or truncating it to",
                     sugg,
                 );
             }
@@ -68,57 +67,23 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for ExcessivePrecision {
 }
 
 impl ExcessivePrecision {
+    // None if nothing to lint, Some(suggestion) if lint neccessary
     fn check(&self, sym: &Symbol, fty: &FloatTy) -> Option<String> {
         let max = max_digits(fty);
         let sym_str = sym.as_str();
+        println!("sym {:?}", sym);
         let (l, r) = split_at_digit(&sym_str, max);
 
-        Some(l.to_string())
-    }
-}
-
-fn round(x: &str, y: &str) -> String {
-    if should_round_up(y) {
-        round_up(x)
-    } else {
-        x.to_string()
-    }
-}
-fn should_round_up(s: &str) -> bool {
-    for c in s.chars() {
-        if c == '5' || c == '_' || c == '.' {
-            continue;
-        }
-        if c == 'f' {
-            // TODO fine to just trunc?
-            return false;
-        }
-
-        match c.to_digit(10) {
-            None => return false,
-            Some(x) => {
-                if x > 5 {
-                    return true;
-                } else {
-                    return false;
-                }
-            },
+        if r == "" {
+            None
+        } else {
+            Some(l.to_string())
         }
     }
-    false
 }
-
-fn round_up(s: &str) -> String {
-    let res = s.get(..s.len()).unwrap().to_string();
-    let last = s.chars().last().unwrap();
-    let mut digit = last.to_digit(10).unwrap();
-    digit += 1;
-    s.to_string()
-}
-
 fn split_at_digit<'a>(s: &'a InternedString, n: u32) -> (&'a str, &'a str) {
     let ds = Digits::new(s);
-    for (di, (i, ref c)) in ds.enumerate() {
+    for (di, (i, ref _)) in ds.enumerate() {
         if di > n as usize {
             return s.split_at(i);
         }
@@ -155,14 +120,11 @@ impl<'a> Iterator for Digits<'a> {
         loop {
             match self.chars.next() {
                 Some((i, c)) => {
-                    if c == '0' && self.index == 0 && self.predecimal || c == '_' {
+                    if c == '0' && self.index == 0 && self.predecimal {
                         continue;
                     } else if c == '.' {
                         self.predecimal = false;
                         continue;
-                    } else if c == 'f' {
-                        // f32/f64 suffix
-                        return None;
                     } else {
                         self.index += 1;
                         return Some((i, c));

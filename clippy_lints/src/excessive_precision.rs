@@ -72,22 +72,18 @@ impl ExcessivePrecision {
         let max = max_digits(fty);
         let sym_str = sym.as_str();
         let digits = count_digits(&sym_str);
+        // println!("{}, max: {}, len: {}", sym_str, max, digits);
         // Try to bail out if the float is for sure fine.
         // If its within the 2 decimal digits of overflow we
         // check if the parsed representation is the same as the string
         // since we'll need the truncated string anyway.
         if digits > max as usize {
-            let s = match *fty {
-                FloatTy::F32 => {
-                    let f = sym_str.parse::<f32>().unwrap();
-                    f.to_string()
-                },
-                FloatTy::F64 => {
-                    let f = sym_str.parse::<f64>().unwrap();
-                    f.to_string()
-                },
+            let sr = match *fty {
+                FloatTy::F32 => sym_str.parse::<f32>().map(|f| f.to_string()),
+                FloatTy::F64 => sym_str.parse::<f64>().map(|f| f.to_string()),
             };
-            println!("got {}, have {}", sym_str, s);
+            // We know this will parse since this is LatePass
+            let s = sr.unwrap();
 
             if sym_str == s {
                 None
@@ -129,8 +125,11 @@ impl<'a> Iterator for Digits<'a> {
         loop {
             let (i, c) = self.chars.next()?;
             // point char or leading zero
-            if c == '.' || c == '0' && self.index == 0 {
+            if c == '-' || c == '.' || c == '0' && self.index == 0 {
                 continue;
+            // Exponents dont count as digits
+            } else if c == 'e' || c == 'E' {
+                return None;
             } else {
                 self.index += 1;
                 return Some((i, c));

@@ -18,6 +18,7 @@ fn main() {
     println!(9.999_999_999_999_999_999_999_999_999);
 
     // TODO add inferred type tests
+    // TODO add tests cases exactly on the edge
     // Locals
     let good32_suf: f32 = 0.123_456_f32;
     let good32: f32 = 0.123_456;
@@ -32,6 +33,9 @@ fn main() {
     let recurse: Vec<f32> = vec![0.123_456_789];
 
     // Exponential float notation
-    let good_exp32: f32 = 1e-10;
-    let bad_exp32: f32 = 1.123456789e-10;
+    let good_e32: f32 = 1e-10;
+    let bad_e32: f32 = 1.123_456_788_888e-10;
+
+    let good_bige32: f32 = 1E-10;
+    let bad_bige32: f32 = 1.123_456_788_888E-10;
 }

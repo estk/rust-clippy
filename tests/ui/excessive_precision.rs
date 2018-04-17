@@ -15,7 +15,7 @@ fn main() {
 
     // const BAD64_32_SUF: f32 = 0.123_456_789_012_345_6f64;
     // Literal
-    // println!(9.999_999_999_999_999_999_999_999_999);
+    println!(9.999_999_999_999_999_999_999_999_999);
 
     // TODO add inferred type tests
     // Locals
@@ -29,5 +29,5 @@ fn main() {
     let bad64_suf: f64 = 0.123_456_789_012_345_6f64;
 
     // TODO Vectors / nested vectors
-    // let recurse: Vec<f32> = vec![0.123_456_789]
+    let recurse: Vec<f32> = vec![0.123_456_789];
 }

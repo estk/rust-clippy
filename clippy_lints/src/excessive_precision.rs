@@ -29,9 +29,9 @@ use utils::span_lint_and_sugg;
 ///    let v: f64 = 0.123_456_789_9;
 ///    println!("{}", v); //  0.123_456_789_9
 /// ```
-declare_lint! {
+declare_clippy_lint! {
     pub EXCESSIVE_PRECISION,
-    Warn,
+    style,
     "excessive precision for float literal"
 }
 

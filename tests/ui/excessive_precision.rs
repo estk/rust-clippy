@@ -15,7 +15,7 @@ fn main() {
 
     // const BAD64_32_SUF: f32 = 0.123_456_789_012_345_6f64;
     // Literal
-    println!(9.999_999_999_999_999_999_999_999_999);
+    println!(8.888_888_888_888_888_888_888);
 
     // TODO add inferred type tests
     // TODO add tests cases exactly on the edge

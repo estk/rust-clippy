@@ -74,7 +74,7 @@ impl ExcessivePrecision {
         let digits = count_digits(&sym_str);
         // println!("{}, max: {}, len: {}", sym_str, max, digits);
         // Try to bail out if the float is for sure fine.
-        // If its within the 2 decimal digits of overflow we
+        // If its within the 2 decimal digits of being out of precision we
         // check if the parsed representation is the same as the string
         // since we'll need the truncated string anyway.
         if digits > max as usize {

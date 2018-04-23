@@ -7,7 +7,9 @@ fn main() {
     // Consts
     const GOOD32_SUF: f32 = 0.123_456_f32;
     const GOOD32: f32 = 0.123_456;
+    const GOOD32_SM: f32 = 0.000_000_000_1;
     const GOOD64: f64 = 0.123_456_789_012;
+    const GOOD64_SM: f32 = 0.000_000_000_000_000_1;
 
     const BAD32_SUF: f32 = 0.123_456_789_f32;
     const BAD32: f32 = 0.123_456_789;

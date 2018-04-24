@@ -65,14 +65,12 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for ExcessivePrecision {
 }
 
 impl ExcessivePrecision {
-    // TODO: need to check case where digits > Max but still ok
     // None if nothing to lint, Some(suggestion) if lint neccessary
     fn check(&self, sym: &Symbol, fty: &FloatTy) -> Option<String> {
         let max = max_digits(fty);
         let sym_str = sym.as_str();
         let formatter = FloatFormat::new(&sym_str);
         let digits = count_digits(&sym_str);
-        // println!("{}, max: {}, len: {}", sym_str, max, digits);
         // Try to bail out if the float is for sure fine.
         // If its within the 2 decimal digits of being out of precision we
         // check if the parsed representation is the same as the string
@@ -82,7 +80,7 @@ impl ExcessivePrecision {
                 FloatTy::F32 => sym_str.parse::<f32>().map(|f| formatter.format(f)),
                 FloatTy::F64 => sym_str.parse::<f64>().map(|f| formatter.format(f)),
             };
-            // We know this will parse since this is LatePass
+            // We know this will parse since we are in LatePass
             let s = sr.unwrap();
 
             if sym_str == s {

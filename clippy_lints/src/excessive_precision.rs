@@ -3,6 +3,7 @@ use rustc::lint::*;
 use rustc::ty::TypeVariants;
 use std::f32;
 use std::f64;
+use std::fmt;
 use syntax::ast::*;
 use syntax_pos::symbol::Symbol;
 use utils::span_lint_and_sugg;
@@ -78,8 +79,8 @@ impl ExcessivePrecision {
         // since we'll need the truncated string anyway.
         if digits > max as usize {
             let sr = match *fty {
-                FloatTy::F32 => sym_str.parse::<f32>().map(|f| formatter.format32(f)),
-                FloatTy::F64 => sym_str.parse::<f64>().map(|f| formatter.format64(f)),
+                FloatTy::F32 => sym_str.parse::<f32>().map(|f| formatter.format(f)),
+                FloatTy::F64 => sym_str.parse::<f64>().map(|f| formatter.format(f)),
             };
             // We know this will parse since this is LatePass
             let s = sr.unwrap();
@@ -103,50 +104,36 @@ fn max_digits(fty: &FloatTy) -> u32 {
 }
 
 fn count_digits(s: &str) -> usize {
-    let prefilter = s.chars()
-        .filter(|c| {
-            *c != '-' || *c != '.'
+    s.chars()
+        .filter(|c| *c != '-' || *c != '.')
+        .take_while(|c| *c != 'e' || *c != 'E')
+        .fold(0, |count, c| {
+            // leading zeros
+            if c == '0' && count == 0 {
+                count
+            } else {
+                count + 1
+            }
         })
-        // Exponents dont count as digits,
-        .take_while(|c| *c != 'e' || *c != 'E');
-
-    let mut count = 0;
-    let mut seen_nonzero = false;
-    for c in prefilter {
-        if c == '0' && !seen_nonzero {
-        } else {
-            seen_nonzero = true;
-            count += 1;
-        }
-    }
-    count
 }
 
 enum FloatFormat {
     LowerExp,
     UpperExp,
-    NoExp
+    NoExp,
 }
 impl FloatFormat {
     fn new(s: &str) -> Self {
-        let maybe_exp = s.chars().find_map(|x| match x {
-            'e' => Some(FloatFormat::LowerExp),
-            'E' => Some(FloatFormat::UpperExp),
-            _ => None,
-        });
-        match maybe_exp {
-            Some(format) => format,
-            None => FloatFormat::NoExp,
-        }
+        s.chars()
+            .find_map(|x| match x {
+                'e' => Some(FloatFormat::LowerExp),
+                'E' => Some(FloatFormat::UpperExp),
+                _ => None,
+            })
+            .unwrap_or(FloatFormat::NoExp)
     }
-    fn format32(&self, f: f32) -> String {
-        match self {
-            FloatFormat::LowerExp => format!("{:e}", f),
-            FloatFormat::UpperExp => format!("{:E}", f),
-            FloatFormat::NoExp => format!("{}", f),
-        }
-    }
-    fn format64(&self, f: f64) -> String {
+    fn format<T>(&self, f: T) -> String
+    where T: fmt::UpperExp + fmt::LowerExp + fmt::Display {
         match self {
             FloatFormat::LowerExp => format!("{:e}", f),
             FloatFormat::UpperExp => format!("{:E}", f),

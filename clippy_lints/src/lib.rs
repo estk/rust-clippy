@@ -13,6 +13,8 @@
 // FIXME(mark-i-m) remove after i128 stablization merges
 #![allow(stable_features)]
 #![feature(i128, i128_type)]
+#![feature(iterator_find_map)]
+
 
 #[macro_use]
 extern crate rustc;

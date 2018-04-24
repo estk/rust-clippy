@@ -3,8 +3,6 @@ use rustc::lint::*;
 use rustc::ty::TypeVariants;
 use std::f32;
 use std::f64;
-use std::iter::Enumerate;
-use std::str::Chars;
 use syntax::ast::*;
 use syntax_pos::symbol::Symbol;
 use utils::span_lint_and_sugg;
@@ -71,6 +69,7 @@ impl ExcessivePrecision {
     fn check(&self, sym: &Symbol, fty: &FloatTy) -> Option<String> {
         let max = max_digits(fty);
         let sym_str = sym.as_str();
+        let formatter = FloatFormat::new(&sym_str);
         let digits = count_digits(&sym_str);
         // println!("{}, max: {}, len: {}", sym_str, max, digits);
         // Try to bail out if the float is for sure fine.
@@ -79,8 +78,8 @@ impl ExcessivePrecision {
         // since we'll need the truncated string anyway.
         if digits > max as usize {
             let sr = match *fty {
-                FloatTy::F32 => sym_str.parse::<f32>().map(|f| f.to_string()),
-                FloatTy::F64 => sym_str.parse::<f64>().map(|f| f.to_string()),
+                FloatTy::F32 => sym_str.parse::<f32>().map(|f| formatter.format32(f)),
+                FloatTy::F64 => sym_str.parse::<f64>().map(|f| formatter.format64(f)),
             };
             // We know this will parse since this is LatePass
             let s = sr.unwrap();
@@ -104,36 +103,54 @@ fn max_digits(fty: &FloatTy) -> u32 {
 }
 
 fn count_digits(s: &str) -> usize {
-    Digits::new(s).collect::<Vec<_>>().len()
-}
+    let prefilter = s.chars()
+        .filter(|c| {
+            *c != '-' || *c != '.'
+        })
+        // Exponents dont count as digits,
+        .take_while(|c| *c != 'e' || *c != 'E');
 
-struct Digits<'a> {
-    index: u32,
-    chars: Enumerate<Chars<'a>>,
-}
-impl<'a> Digits<'a> {
-    fn new(s: &'a str) -> Self {
-        Digits {
-            index: 0,
-            chars: s.chars().enumerate(),
+    let mut count = 0;
+    let mut seen_nonzero = false;
+    for c in prefilter {
+        if c == '0' && !seen_nonzero {
+        } else {
+            seen_nonzero = true;
+            count += 1;
         }
     }
+    count
 }
-impl<'a> Iterator for Digits<'a> {
-    type Item = (usize, char);
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let (i, c) = self.chars.next()?;
-            // point char or leading zero
-            if c == '-' || c == '.' || c == '0' && self.index == 0 {
-                continue;
-            // Exponents dont count as digits
-            } else if c == 'e' || c == 'E' {
-                return None;
-            } else {
-                self.index += 1;
-                return Some((i, c));
-            }
+
+enum FloatFormat {
+    LowerExp,
+    UpperExp,
+    NoExp
+}
+impl FloatFormat {
+    fn new(s: &str) -> Self {
+        let maybe_exp = s.chars().find_map(|x| match x {
+            'e' => Some(FloatFormat::LowerExp),
+            'E' => Some(FloatFormat::UpperExp),
+            _ => None,
+        });
+        match maybe_exp {
+            Some(format) => format,
+            None => FloatFormat::NoExp,
+        }
+    }
+    fn format32(&self, f: f32) -> String {
+        match self {
+            FloatFormat::LowerExp => format!("{:e}", f),
+            FloatFormat::UpperExp => format!("{:E}", f),
+            FloatFormat::NoExp => format!("{}", f),
+        }
+    }
+    fn format64(&self, f: f64) -> String {
+        match self {
+            FloatFormat::LowerExp => format!("{:e}", f),
+            FloatFormat::UpperExp => format!("{:E}", f),
+            FloatFormat::NoExp => format!("{}", f),
         }
     }
 }

@@ -118,7 +118,7 @@ fn count_digits(s: &str) -> usize {
 enum FloatFormat {
     LowerExp,
     UpperExp,
-    NoExp,
+    Normal,
 }
 impl FloatFormat {
     fn new(s: &str) -> Self {
@@ -128,14 +128,14 @@ impl FloatFormat {
                 'E' => Some(FloatFormat::UpperExp),
                 _ => None,
             })
-            .unwrap_or(FloatFormat::NoExp)
+            .unwrap_or(FloatFormat::Normal)
     }
     fn format<T>(&self, f: T) -> String
     where T: fmt::UpperExp + fmt::LowerExp + fmt::Display {
         match self {
             FloatFormat::LowerExp => format!("{:e}", f),
             FloatFormat::UpperExp => format!("{:E}", f),
-            FloatFormat::NoExp => format!("{}", f),
+            FloatFormat::Normal => format!("{}", f),
         }
     }
 }
